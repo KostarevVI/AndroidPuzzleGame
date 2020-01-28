@@ -17,6 +17,7 @@ import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.media.ExifInterface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
@@ -33,6 +34,7 @@ import static java.lang.Math.abs;
 public class PuzzleActivity extends AppCompatActivity {
     ArrayList<PuzzlePiece> pieces;
     String mCurrentPhotoPath;
+    String mCurrentPhotoUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +47,7 @@ public class PuzzleActivity extends AppCompatActivity {
         Intent intent = getIntent();
         final String assetName = intent.getStringExtra("assetName");
         mCurrentPhotoPath = intent.getStringExtra("mCurrentPhotoPath");
+        mCurrentPhotoUri = intent.getStringExtra("mCurrentPhotoUri");
 
         imageView.post(new Runnable() {
             public void run() {
@@ -52,12 +55,14 @@ public class PuzzleActivity extends AppCompatActivity {
                     setPicFromAsset(assetName, imageView);
                 } else if (mCurrentPhotoPath != null) {
                     setPicFromPath(mCurrentPhotoPath, imageView);
+                } else if (mCurrentPhotoUri != null) {
+                    imageView.setImageURI(Uri.parse(mCurrentPhotoUri));
                 }
                 pieces = splitImage();
                 TouchListener touchListener = new TouchListener(PuzzleActivity.this);
                 //мешаем куски
                 Collections.shuffle(pieces);
-                for(PuzzlePiece piece : pieces) {
+                for (PuzzlePiece piece : pieces) {
                     piece.setOnTouchListener(touchListener);
                     layout.addView(piece);
                     //рандомизируем размещение позиции
@@ -86,7 +91,7 @@ public class PuzzleActivity extends AppCompatActivity {
             int photoH = bmOptions.outHeight;
 
             // Determine how much to scale down the image
-            int scaleFactor = Math.min(photoW/targetW, photoH/targetH);
+            int scaleFactor = Math.min(photoW / targetW, photoH / targetH);
 
             is.reset();
 
@@ -114,41 +119,15 @@ public class PuzzleActivity extends AppCompatActivity {
         int photoW = bmOptions.outWidth;
         int photoH = bmOptions.outHeight;
 
-        int scaleFactor = Math.min(photoW/targetW, photoH/targetH);
+        int scaleFactor = Math.min(photoW / targetW, photoH / targetH);
 
         bmOptions.inJustDecodeBounds = false;
         bmOptions.inSampleSize = scaleFactor;
         bmOptions.inPurgeable = true;
 
         Bitmap bitmap = BitmapFactory.decodeFile(mCurrentPhotoPath, bmOptions);
-        Bitmap rotatedBitmap = bitmap;
 
-        try {
-            ExifInterface ei = new ExifInterface(mCurrentPhotoPath);
-            int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_UNDEFINED);
-            switch (orientation) {
-                case ExifInterface.ORIENTATION_ROTATE_90:
-                    rotatedBitmap = rotateImage(bitmap, 90);
-                    break;
-                case ExifInterface.ORIENTATION_ROTATE_180:
-                    rotatedBitmap = rotateImage(bitmap, 180);
-                    break;
-                case ExifInterface.ORIENTATION_ROTATE_270:
-                    rotatedBitmap = rotateImage(bitmap, 270);
-                    break;
-            }
-        } catch (IOException e) {
-            Toast.makeText(this, e.getLocalizedMessage(), Toast.LENGTH_SHORT).show();
-        }
-
-        imageView.setImageBitmap(rotatedBitmap);
-    }
-
-    public static Bitmap rotateImage(Bitmap source, float angle) {
-        Matrix matrix = new Matrix();
-        matrix.postRotate(angle);
-        return Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(),
-                matrix, true);
+        imageView.setImageBitmap(bitmap);
     }
 
 
@@ -195,7 +174,7 @@ public class PuzzleActivity extends AppCompatActivity {
                     offsetY = pieceHeight / 3;
                 }
 
-                // apply the offset to each piece
+                //вносим корректировки в каждый кусок
                 Bitmap pieceBitmap = Bitmap.createBitmap(croppedBitmap, xCoord - offsetX, yCoord - offsetY, pieceWidth + offsetX, pieceHeight + offsetY);
                 PuzzlePiece piece = new PuzzlePiece(getApplicationContext());
                 piece.setImageBitmap(pieceBitmap);
@@ -204,55 +183,55 @@ public class PuzzleActivity extends AppCompatActivity {
                 piece.pieceWidth = pieceWidth + offsetX;
                 piece.pieceHeight = pieceHeight + offsetY;
 
-                // this bitmap will hold our final puzzle piece image
+                //этот битмап будет держать наш кусок
                 Bitmap puzzlePiece = Bitmap.createBitmap(pieceWidth + offsetX, pieceHeight + offsetY, Bitmap.Config.ARGB_8888);
 
-                // draw path
+                //отрисовываем путь
                 int bumpSize = pieceHeight / 4;
                 Canvas canvas = new Canvas(puzzlePiece);
                 Path path = new Path();
                 path.moveTo(offsetX, offsetY);
                 if (row == 0) {
-                    // top side piece
+                    //верх куска если край
                     path.lineTo(pieceBitmap.getWidth(), offsetY);
                 } else {
-                    // top bump
+                    //верх куска
                     path.lineTo(offsetX + (pieceBitmap.getWidth() - offsetX) / 3, offsetY);
                     path.cubicTo(offsetX + (pieceBitmap.getWidth() - offsetX) / 6, offsetY - bumpSize, offsetX + (pieceBitmap.getWidth() - offsetX) / 6 * 5, offsetY - bumpSize, offsetX + (pieceBitmap.getWidth() - offsetX) / 3 * 2, offsetY);
                     path.lineTo(pieceBitmap.getWidth(), offsetY);
                 }
 
                 if (col == cols - 1) {
-                    // right side piece
+                    //правая сторона если край
                     path.lineTo(pieceBitmap.getWidth(), pieceBitmap.getHeight());
                 } else {
-                    // right bump
+                    //правая сторона
                     path.lineTo(pieceBitmap.getWidth(), offsetY + (pieceBitmap.getHeight() - offsetY) / 3);
-                    path.cubicTo(pieceBitmap.getWidth() - bumpSize,offsetY + (pieceBitmap.getHeight() - offsetY) / 6, pieceBitmap.getWidth() - bumpSize, offsetY + (pieceBitmap.getHeight() - offsetY) / 6 * 5, pieceBitmap.getWidth(), offsetY + (pieceBitmap.getHeight() - offsetY) / 3 * 2);
+                    path.cubicTo(pieceBitmap.getWidth() - bumpSize, offsetY + (pieceBitmap.getHeight() - offsetY) / 6, pieceBitmap.getWidth() - bumpSize, offsetY + (pieceBitmap.getHeight() - offsetY) / 6 * 5, pieceBitmap.getWidth(), offsetY + (pieceBitmap.getHeight() - offsetY) / 3 * 2);
                     path.lineTo(pieceBitmap.getWidth(), pieceBitmap.getHeight());
                 }
 
                 if (row == rows - 1) {
-                    // bottom side piece
+                    //низ если край
                     path.lineTo(offsetX, pieceBitmap.getHeight());
                 } else {
-                    // bottom bump
+                    //низ
                     path.lineTo(offsetX + (pieceBitmap.getWidth() - offsetX) / 3 * 2, pieceBitmap.getHeight());
-                    path.cubicTo(offsetX + (pieceBitmap.getWidth() - offsetX) / 6 * 5,pieceBitmap.getHeight() - bumpSize, offsetX + (pieceBitmap.getWidth() - offsetX) / 6, pieceBitmap.getHeight() - bumpSize, offsetX + (pieceBitmap.getWidth() - offsetX) / 3, pieceBitmap.getHeight());
+                    path.cubicTo(offsetX + (pieceBitmap.getWidth() - offsetX) / 6 * 5, pieceBitmap.getHeight() - bumpSize, offsetX + (pieceBitmap.getWidth() - offsetX) / 6, pieceBitmap.getHeight() - bumpSize, offsetX + (pieceBitmap.getWidth() - offsetX) / 3, pieceBitmap.getHeight());
                     path.lineTo(offsetX, pieceBitmap.getHeight());
                 }
 
                 if (col == 0) {
-                    // left side piece
+                    //левая часть куска если край
                     path.close();
                 } else {
-                    // left bump
+                    //левая часть куска
                     path.lineTo(offsetX, offsetY + (pieceBitmap.getHeight() - offsetY) / 3 * 2);
                     path.cubicTo(offsetX - bumpSize, offsetY + (pieceBitmap.getHeight() - offsetY) / 6 * 5, offsetX - bumpSize, offsetY + (pieceBitmap.getHeight() - offsetY) / 6, offsetX, offsetY + (pieceBitmap.getHeight() - offsetY) / 3);
                     path.close();
                 }
 
-                // mask the piece
+                //обрезаем куски
                 Paint paint = new Paint();
                 paint.setColor(0XFF000000);
                 paint.setStyle(Paint.Style.FILL);
@@ -264,27 +243,29 @@ public class PuzzleActivity extends AppCompatActivity {
                 pieces.add(piece);
                 xCoord += pieceWidth;
 
-                // draw a white border
+                //рисуем белую рамку
                 Paint border = new Paint();
                 border.setColor(0X80FFFFFF);
                 border.setStyle(Paint.Style.STROKE);
                 border.setStrokeWidth(8.0f);
                 canvas.drawPath(path, border);
 
-                // draw a black border
+                //рисуем чёрную рамку
                 border = new Paint();
                 border.setColor(0X80000000);
                 border.setStyle(Paint.Style.STROKE);
                 border.setStrokeWidth(3.0f);
                 canvas.drawPath(path, border);
 
-                // set the resulting bitmap to the piece
+                //назначаем битмап куску
                 piece.setImageBitmap(puzzlePiece);
             }
             yCoord += pieceHeight;
         }
         return pieces;
     }
+
+
 
 
     private int[] getBitmapPositionInsideImageView(ImageView imageView) {

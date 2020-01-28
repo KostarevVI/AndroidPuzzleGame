@@ -26,6 +26,13 @@ import java.util.Date;
 
 public class MainActivity extends AppCompatActivity {
 
+    String mCurrentPhotoPath;
+    private static final int REQUEST_IMAGE_CAPTURE = 1;
+    private static final int REQUEST_PERMISSION_WRITE_EXTERNAL_STORAGE = 2;
+    static final int REQUEST_PERMISSION_READ_EXTERNAL_STORAGE = 3;
+    static final int REQUEST_IMAGE_GALLERY = 4;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -33,7 +40,7 @@ public class MainActivity extends AppCompatActivity {
 
         AssetManager am = getAssets();
         try {
-            final String[] files  = am.list("img");
+            final String[] files = am.list("img");
 
             GridView grid = findViewById(R.id.grid);
             grid.setAdapter(new ImageAdapter(this));
@@ -52,9 +59,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    String mCurrentPhotoPath;
-    private static final int REQUEST_IMAGE_CAPTURE = 1;
-    private static final int REQUEST_PERMISSION_WRITE_EXTERNAL_STORAGE = 2;
     public void onImageFromCameraClick(View view) {
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (intent.resolveActivity(getPackageManager()) != null) {
@@ -75,12 +79,32 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+    public void onImageFromGalleryClick(View view) {
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]
+                    {Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_PERMISSION_READ_EXTERNAL_STORAGE);
+        } else {
+            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+            intent.setType("image/*");
+            startActivityForResult(intent, REQUEST_IMAGE_GALLERY);
+        }
+    }
+
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
             Intent intent = new Intent(this, PuzzleActivity.class);
             intent.putExtra("mCurrentPhotoPath", mCurrentPhotoPath);
+            startActivity(intent);
+        }
+        if (requestCode == REQUEST_IMAGE_GALLERY && resultCode == RESULT_OK) {
+            Uri uri = data.getData();
+
+            Intent intent = new Intent(this, PuzzleActivity.class);
+            intent.putExtra("mCurrentPhotoUri", uri.toString());
             startActivity(intent);
         }
     }
